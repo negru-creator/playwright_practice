@@ -17,7 +17,11 @@
   },
   "homepage": "https://github.com/negru-creator/playwright_practice#readme",
   "devDependencies": {
+    "@faker-js/faker": "^10.3.0",
     "@playwright/test": "^1.58.2",
     "@types/node": "^25.2.2"
+  },
+  "dependencies": {
+    "faker": "^6.6.6"
   }
 }
