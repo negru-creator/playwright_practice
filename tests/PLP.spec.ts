@@ -1,47 +1,56 @@
 import { test, expect } from '@playwright/test';
 import { standardUser } from '../test-data/users';
-import { getRandomElementFromList } from '../test-data/utils/getElements';
+import { getRandomElementIndexFromList } from '../test-data/utils/getElements';
+import LoginPage from '../pom/pages/loginPage';
+import ProductsPage from '../pom/pages/ProductsPage';
+import ProductDetailsPage from '../pom/pages/ProductDetails';
+import { Urls } from '../test-data/urls';
+import Header from '../pom/modules/Header';
 
 
-
+let loginPage: LoginPage;
+let productsPage: ProductsPage;
+let productDetailsPage: ProductDetailsPage;
+let header: Header;
 test.describe('Product List page tests', () => {
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('');
-        await page.locator('#user-name').fill(standardUser.username);
-        await page.locator('#password').fill(standardUser.password);
-        await page.locator('#login-button').click();
-        await expect(page.locator('.title')).toHaveText('Products');
-        await expect(page).toHaveURL('/inventory.html');
+        loginPage = new LoginPage(page);
+        productsPage = new ProductsPage(page);
+        productDetailsPage = new ProductDetailsPage(page);
+        header = new Header(page);
+
+        await loginPage.navigate();
+        await loginPage.loginWithCredentials(standardUser.username, standardUser.password);
+        await expect(page).toHaveURL(Urls.PRODUCTS_PAGE);
+        await expect(productsPage.productsTitle).toBeVisible();
     })
 
-    test('Open PDP from PLP', async ({ page }) => {
-        const randomProductIndex = await getRandomElementFromList(page.locator('[data-test="inventory-item-name"]'));
-        const productName = await page.locator('[data-test="inventory-item-name"]').nth(randomProductIndex).textContent();
+    test('Open PDP from PLP', async () => {
+        const randomProductIndex = await getRandomElementIndexFromList(productsPage.productNames);
+        const productName = await productsPage.getProductNameByIndex(randomProductIndex);
+        await productsPage.clickOnProductByIndex(randomProductIndex);
+        await expect(productDetailsPage.productName).toHaveText(productName!);
+    })
 
-        await page.locator('[data-test="inventory-item-name"]').nth(randomProductIndex).click();
-        await expect(page.locator('[data-test="inventory-item-name"]')).toHaveText(productName!);
+    test('Add an item to the cart from PLP', async () => {
+        const randomProductIndex = await getRandomElementIndexFromList(productsPage.productNames);
+        await productsPage.clickAddToCartButtonByIndex(randomProductIndex);
+        await expect(productsPage.addToCartButtons.nth(randomProductIndex)).toHaveText('Remove');
+        await expect(header.shoppingCartBadge).toHaveText('1');
 
     })
 
-    test('Add an item to the cart from PLP', async ({ page }) => {
-        const randomProductIndex = await getRandomElementFromList(page.locator('[data-test="inventory-item-name"]'));
-        await page.locator('.btn_inventory').nth(randomProductIndex).click();
-        await expect(page.locator('.btn_inventory').nth(randomProductIndex)).toHaveText('Remove');
-        await expect(page.locator('[data-test="shopping-cart-badge"]')).toHaveText('1');
+    test('Remove an item from the cart from PLP', async () => {
+        const randomProductIndex = await getRandomElementIndexFromList(productsPage.productNames);
+        await productsPage.clickAddToCartButtonByIndex(randomProductIndex);
+        await expect(productsPage.addToCartButtons.nth(randomProductIndex)).toHaveText('Remove');
+        await expect(header.shoppingCartBadge).toHaveText('1');
 
-    })
-
-    test('Remove an item from the cart from PLP', async ({ page }) => {
-        const randomProductIndex = await getRandomElementFromList(page.locator('[data-test="inventory-item-name"]'));
-        await page.locator('.btn_inventory').nth(randomProductIndex).click();
-        await expect(page.locator('.btn_inventory').nth(randomProductIndex)).toHaveText('Remove');
-        await expect(page.locator('[data-test="shopping-cart-badge"]')).toHaveText('1');
-
-        await page.locator('.btn_inventory').nth(randomProductIndex).click();
-        await expect(page.locator('.btn_inventory').nth(randomProductIndex)).toHaveText('Add to cart');
-        await expect(page.locator('[data-test="shopping-cart-badge"]')).not.toBeVisible();
-        await expect(page.locator('[data-test="shopping-cart-badge"]')).toHaveCount(0);
+        await productsPage.clickRemoveFromCartButtonByIndex(randomProductIndex);
+        await expect(productsPage.addToCartButtons.nth(randomProductIndex)).toHaveText('Add to cart');
+        await expect(header.shoppingCartBadge).not.toBeVisible();
+        await expect(header.shoppingCartBadge).toHaveCount(0);
 
     })
 
@@ -50,44 +59,31 @@ test.describe('Product List page tests', () => {
 test.describe('Tests for Sorting functionality on PLP', () => {
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('');
-        await page.locator('#user-name').fill(standardUser.username);
-        await page.locator('#password').fill(standardUser.password);
-        await page.locator('#login-button').click();
-        await expect(page.locator('.title')).toHaveText('Products');
-        await expect(page).toHaveURL('/inventory.html');
+        loginPage = new LoginPage(page);
+        productsPage = new ProductsPage(page);
+        await loginPage.navigate();
+        await loginPage.loginWithCredentials(standardUser.username, standardUser.password);
+        await expect(page).toHaveURL(Urls.PRODUCTS_PAGE);
+        await expect(productsPage.productsTitle).toBeVisible();
     })
 
-    test('Test to verify default sorting is A-Z', async ({ page }) => {
-        await expect(page.locator('[data-test="product-sort-container"]')).toHaveValue('az');
+    test('Test to verify default sorting is A-Z', async () => {
+        await expect(productsPage.sortingDropdown).toHaveValue('az');
 
     })
 
 
-    test('Applying price sorting from low to high', async ({ page }) => {
-        await expect(page.locator('[data-test="product-sort-container"]')).toHaveValue('az');
+    test('Applying price sorting from low to high', async () => {
+        await expect(productsPage.sortingDropdown).toHaveValue('az');
 
-        const pricesLocator = page.locator('[data-test="inventory-item-price"]');
-        const getPrices = async () => {
-            const count = await pricesLocator.count();
-            const prices: number[] = [];
+        const initialPrices = await productsPage.getAllProductPricesByIndex();
+        await productsPage.selectSortingOption('lohi');
 
-            for (let i = 0; i < count; i++) {
-                const text = await pricesLocator.nth(i).textContent();
-                prices.push(parseFloat(text!.replace('$', '')));
-            }
-            return prices;
-        };
-
-        const initialPrices = await getPrices();
-
-        await page.locator('[data-test="product-sort-container"]').selectOption('lohi');
-
-        const pricesAfterSorting = await getPrices();
-
+        const pricesAfterSorting = await productsPage.getAllProductPricesByIndex();
         const expectedSortedArray = [...initialPrices].sort((a, b) => a - b);
 
         expect(pricesAfterSorting).toEqual(expectedSortedArray);
+
     });
 
 })
