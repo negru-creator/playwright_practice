@@ -1,78 +1,76 @@
 import { test, expect } from '@playwright/test';
 import { faker } from '@faker-js/faker';
-import { addRandomProductToCart } from '../test-data/utils/addToCart';
 import { standardUser } from '../test-data/users';
-import { Errors } from '../test-data/errors';
-import { SuccessMessages } from '../test-data/successMessages';
+import LoginPage from '../pom/pages/loginPage';
+import ProductsPage from '../pom/pages/ProductsPage';
+import Header from '../pom/modules/Header';
+import CartPage from '../pom/pages/CartPage';
+import CheckoutPage from '../pom/pages/Checkout';
+import { Urls } from '../test-data/urls';
 
 test.describe('Test for Checkout functionality', () => {
-    test.beforeEach(async ({ page }) => {
-        await page.goto('');
-        await page.locator('#user-name').fill(standardUser.username);
-        await page.locator('#password').fill(standardUser.password);
-        await page.locator('#login-button').click();
+    let loginPage: LoginPage;
+    let productsPage: ProductsPage;
+    let header: Header;
+    let cartPage: CartPage;
+    let checkoutPage: CheckoutPage;
 
-        await expect(page.locator('.title')).toHaveText('Products');
-        await expect(page).toHaveURL('/inventory.html');
+    test.beforeEach(async ({ page }) => {
+        loginPage = new LoginPage(page);
+        productsPage = new ProductsPage(page);
+        header = new Header(page);
+        cartPage = new CartPage(page);
+        checkoutPage = new CheckoutPage(page);
+
+        await loginPage.navigate();
+        await loginPage.loginWithCredentials(standardUser.username, standardUser.password);
+        await expect(page).toHaveURL(Urls.PRODUCTS_PAGE);
+        await expect(productsPage.productsTitle).toBeVisible();
     });
 
     test('Completing the checkout with valid data', async ({ page }) => {
-        const product = await addRandomProductToCart(page);
+        const product = await productsPage.addRandomProductToCart();
 
-        await page.locator('[data-test="shopping-cart-link"]').click();
-        await expect(page).toHaveURL('/cart.html');
-        await expect(page.locator('[data-test="inventory-item-name"]')).toHaveText(product.name);
-        await expect(page.locator('[data-test="inventory-item-price"]')).toHaveText(product.price);
+        await cartPage.clickShoppingCartLink();
+        await expect(page).toHaveURL(Urls.CART_PAGE);
 
-        await page.locator('#checkout').click();
-        await expect(page.locator('.title')).toHaveText('Checkout: Your Information');
+        const cartData = await cartPage.getCartItemData();
+        expect(cartData).toEqual(product);
 
+        await cartPage.clickCheckoutButton();
+        await expect(checkoutPage.checkoutTitle).toBeVisible();
+        await expect(page).toHaveURL(Urls.CHECKOUT_STEP_ONE_PAGE);
 
-        await page.locator('#first-name').fill(faker.person.firstName());
-        await page.locator('#last-name').fill(faker.person.lastName());
-        await page.locator('#postal-code').fill(faker.location.zipCode());
-        await page.locator('#continue').click();
+        await checkoutPage.fillFirstName(faker.person.firstName());
+        await checkoutPage.fillLastName(faker.person.lastName());
+        await checkoutPage.fillPostalCode(faker.location.zipCode());
+        await checkoutPage.clickContinueButton();
+        await expect(page).toHaveURL(Urls.CHECKOUT_STEP_TWO_PAGE);
+        await expect(checkoutPage.overviewTitle).toBeVisible();
 
+        const overviewData = await checkoutPage.getOverviewItemData();
+        expect(overviewData).toEqual(product);
 
-        await expect(page.locator('.title')).toHaveText('Checkout: Overview');
-        await expect(page.locator('[data-test="inventory-item-name"]')).toHaveText(product.name);
-        await expect(page.locator('[data-test="inventory-item-price"]')).toHaveText(product.price);
-
-        await page.locator('#finish').click();
-        await expect(page.locator('.title')).toHaveText('Checkout: Complete!');
-        await expect(page.getByAltText('Pony Express')).toBeVisible();
-        await expect(page.locator('[data-test="complete-header"]')).toHaveText(SuccessMessages.THANK_YOU_MSG);
-        await expect(page.locator('[data-test="complete-text"]')).toHaveText(SuccessMessages.DISPATCHED_ORDER_MSG);
-        await expect(page.locator('[data-test="back-to-products"]')).toBeVisible();
+        await checkoutPage.clickFinishButton();
+        await expect(page).toHaveURL(Urls.CHECKOUT_COMPLETE_PAGE);
+        await checkoutPage.assertCheckoutIsComplete();
     });
 
     test('Completing the checkout fails without postal code', async ({ page }) => {
-        const product = await addRandomProductToCart(page);
+        await productsPage.addRandomProductToCart();
 
-        await page.locator('[data-test="shopping-cart-link"]').click();
-        await expect(page).toHaveURL('/cart.html');
-        await expect(page.locator('[data-test="inventory-item-name"]')).toHaveText(product.name);
-        await expect(page.locator('[data-test="inventory-item-price"]')).toHaveText(product.price);
+        await cartPage.clickShoppingCartLink();
+        await expect(page).toHaveURL(Urls.CART_PAGE);
 
-        await page.locator('#checkout').click();
-        await expect(page.locator('.title')).toHaveText('Checkout: Your Information');
+        await cartPage.clickCheckoutButton();
+        await expect(checkoutPage.checkoutTitle).toBeVisible();
 
+        await checkoutPage.fillFirstName(faker.person.firstName());
+        await checkoutPage.fillLastName(faker.person.lastName());
+        await checkoutPage.clickContinueButton();
 
-        await page.locator('#first-name').fill(faker.person.firstName());
-        await page.locator('#last-name').fill(faker.person.lastName());
-        await page.locator('#continue').click();
+        await checkoutPage.assertPostalCodeError();
+        await expect(checkoutPage.errorBlock).toBeVisible();
+    });
+});
 
-        await expect(page).toHaveURL('/checkout-step-one.html');
-        await expect(page.locator('#first-name.input_error')).toHaveCSS('border-bottom-color', 'rgb(226, 35, 26)');
-        await expect(page.locator('#last-name.input_error')).toHaveCSS('border-bottom-color', 'rgb(226, 35, 26)');
-        await expect(page.locator('#postal-code.input_error')).toHaveCSS('border-bottom-color', 'rgb(226, 35, 26)');
-
-        await expect(page.locator('#first-name + svg.error_icon')).toBeVisible();
-        await expect(page.locator('#last-name + svg.error_icon')).toBeVisible();
-        await expect(page.locator('#postal-code + svg.error_icon')).toBeVisible();
-
-        await expect(page.locator('[data-test="error"]')).toBeVisible();
-        await expect(page.locator('[data-test="error"]')).toHaveText(Errors.EMPTY_POSTAL_CODE_ERROR);
-    })
-
-})
