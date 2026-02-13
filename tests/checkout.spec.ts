@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { faker } from '@faker-js/faker';
 import { standardUser } from '../test-data/users';
-import LoginPage from '../pom/pages/loginPage';
+import LoginPage from '../pom/pages/LoginPage';
 import ProductsPage from '../pom/pages/ProductsPage';
 import Header from '../pom/modules/Header';
 import CartPage from '../pom/pages/CartPage';

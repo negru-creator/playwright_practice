@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { lockedOutUser, problemUser, standardUser } from '../test-data/users';
 import { Errors } from '../test-data/errors';
 import { faker } from '@faker-js/faker';
-import LoginPage from '../pom/pages/loginPage';
+import LoginPage from '../pom/pages/LoginPage';
 import ProductsPage from '../pom/pages/ProductsPage';
 import { Urls } from '../test-data/urls';
 

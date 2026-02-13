@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { standardUser } from '../test-data/users';
 import { getRandomElementIndexFromList } from '../test-data/utils/getElements';
-import LoginPage from '../pom/pages/loginPage';
+import LoginPage from '../pom/pages/LoginPage';
 import ProductsPage from '../pom/pages/ProductsPage';
 import ProductDetailsPage from '../pom/pages/ProductDetails';
 import { Urls } from '../test-data/urls';
